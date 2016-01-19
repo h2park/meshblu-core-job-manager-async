@@ -9,11 +9,11 @@ JobManagerAsync = require '../src/job-manager-async'
 describe 'JobManagerAsync', ->
   beforeEach ->
     @redisId = uuid.v4()
-    @client = _.bindAll new RedisNS 'ns', redis.createClient(@redisId)
+    @client = new RedisNS 'ns', redis.createClient(@redisId)
 
     @sut = new JobManagerAsync
-      client: _.bindAll new RedisNS 'ns', redis.createClient(@redisId)
-      signallingClient: _.bindAll new RedisNS 'ns', redis.createClient(@redisId)
+      client: new RedisNS 'ns', redis.createClient(@redisId)
+      signallingClient: new RedisNS 'ns', redis.createClient(@redisId)
       timeoutSeconds: 1
 
   describe 'when instantiated without a timeout', ->
@@ -26,7 +26,7 @@ describe 'JobManagerAsync', ->
 
   describe 'when instantiated without a signalling client', ->
     it 'should blow up', ->
-      expect(=> new JobManagerAsync timeoutSeconds: 1, client: _.bindAll new RedisNS 'ns', redis.createClient(@redisId)).to.throw 'JobManagerAsync constructor is missing "signallingClient"'
+      expect(=> new JobManagerAsync(timeoutSeconds: 1, client: @client)).to.throw 'JobManagerAsync constructor is missing "signallingClient"'
 
   describe '->createRequest', ->
     context 'when called with a request', ->
@@ -158,8 +158,8 @@ describe 'JobManagerAsync', ->
       describe 'when it receives a response', ->
         beforeEach (done) ->
           jobManager = new JobManagerAsync
-            client: _.bindAll new RedisNS 'ns', redis.createClient(@redisId)
-            signallingClient: _.bindAll new RedisNS 'ns', redis.createClient(@redisId)
+            client: new RedisNS 'ns', redis.createClient(@redisId)
+            signallingClient: new RedisNS 'ns', redis.createClient(@redisId)
             timeoutSeconds: 1
 
           jobManager.getRequest ['request'], (error, request) =>

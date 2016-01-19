@@ -20,13 +20,12 @@ class JobManagerAsync
 
     debug "@client.hset", "#{responseId}", 'request:metadata', metadataStr
     debug '@client.lpush', "#{requestQueue}:queue"
-    
     async.series [
       async.apply @client.hset, "#{responseId}", 'request:metadata', metadataStr
       async.apply @client.hset, "#{responseId}", 'request:data', rawData
       async.apply @client.expire, "#{responseId}", @timeoutSeconds
       async.apply @client.lpush, "#{requestQueue}:queue", "#{responseId}"
-      async.apply @client.publish, "#{requestQueue}:has-work", true
+      async.apply @client.publish, "#{requestQueue}:has-work", "true"
     ], callback
 
   createResponse: (responseQueue, options, callback) =>
@@ -45,7 +44,7 @@ class JobManagerAsync
       async.apply @client.hset, "#{responseId}", 'response:data', rawData
       async.apply @client.expire, "#{responseId}", @timeoutSeconds
       async.apply @client.lpush, "#{responseQueue}:#{responseId}", "#{responseId}"
-      async.apply @client.publish, "#{responseId}:work-complete", true
+      async.apply @client.publish, "#{responseId}:work-complete", "true"
     ], callback
 
   do: (requestQueue, responseQueue, options, callback) =>
@@ -64,29 +63,33 @@ class JobManagerAsync
       @_getRequest queue, callback
 
   _getRequest: (requestQueue, callback) =>
-    queue = "#{queue}:queue"
-    @client.rpop queue, (error, result) =>
-      debug "getRequest got:", {error, result}
+    queue = "#{requestQueue}:queue"
+    @client.rpop queue, (error, key) =>
       return callback error if error?
-      return @waitForRequest(requestQueue, callback) unless result?
+      return @waitForRequest(requestQueue, callback) unless key?
+      debug "got request key", key
 
       async.parallel
-        metadata: async.apply @client.hget, result, 'request:metadata'
-        data: async.apply @client.hget, result, 'request:data'
+        metadata: async.apply @client.hget, key, 'request:metadata'
+        data: async.apply @client.hget, key, 'request:data'
       , (error, result) =>
+        debug "_getRequest data", result
         return callback error if error?
         return callback null, null unless result?.metadata?
         callback null,
-          metadata: JSON.parse result.metadata
+          metadata: JSON.parse result?.metadata
           rawData: result.data
 
   waitForRequest: (requestQueue, callback) =>
-    debug "standing by for", requestQueue
+    requestChannel = "#{requestQueue}:has-work"
+    debug "waitingForRequest", requestChannel
     @signallingClient.on 'message', (channel, message) =>
-      debug "waitForRequest onMessage", {channel, message, queues}
-      @getRequest requestQueues, callback if channel == "ns:#{requestQueue}:has-work"
+      debug "Request: work available", {requestQueue, message, requestChannel}
+      @_getRequest requestQueue, callback if channel == requestChannel
+      @signallingClient.unsubscribe requestChannel
+      
+    @signallingClient.subscribe requestChannel
 
-    @signallingClient.subscribe requestQueue
 
   getResponse: (responseQueue, responseId, callback) =>
     debug "getResponse", {responseQueue, responseId}
@@ -110,7 +113,7 @@ class JobManagerAsync
 
     @signallingClient.on 'message', (channel, message) =>
       debug "waitForResponse onMessage", {channel, message}
-      return unless channel == "ns:#{responseChannel}"
+      return unless channel == responseChannel
       debug "response", {channel, message}
       @signallingClient.unsubscribe responseChannel
       @getResponse responseQueue, responseId, callback
