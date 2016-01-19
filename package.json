@@ -1,6 +1,6 @@
 {
   "name": "meshblu-core-job-manager-async",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "An async implementation of meshblu-core-job-manager. Safety not guaranteed. Use at your own risk",
   "main": "index.js",
   "directories": {

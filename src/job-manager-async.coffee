@@ -83,11 +83,12 @@ class JobManagerAsync
   waitForRequest: (requestQueue, callback) =>
     requestChannel = "#{requestQueue}:has-work"
     debug "waitingForRequest", requestChannel
+
     @signallingClient.on 'message', (channel, message) =>
       debug "Request: work available", {requestQueue, message, requestChannel}
       @_getRequest requestQueue, callback if channel == requestChannel
       @signallingClient.unsubscribe requestChannel
-      
+
     @signallingClient.subscribe requestChannel
 
 
@@ -110,6 +111,7 @@ class JobManagerAsync
   waitForResponse: (responseQueue, responseId, callback) =>
     debug "waitForResponse", {responseQueue, responseId}
     responseChannel = "#{responseId}:work-complete"
+    responded = false
 
     @signallingClient.on 'message', (channel, message) =>
       debug "waitForResponse onMessage", {channel, message}
@@ -117,7 +119,18 @@ class JobManagerAsync
       debug "response", {channel, message}
       @signallingClient.unsubscribe responseChannel
       @getResponse responseQueue, responseId, callback
+      responded = true
 
     @signallingClient.subscribe responseChannel
+
+    _.delay(
+      =>
+        return if responded
+        @signallingClient.unsubscribe responseChannel
+        callback new Error ('Response timeout exceeded')
+      @timeoutSeconds * 1000
+    )
+
+
 
 module.exports = JobManagerAsync
