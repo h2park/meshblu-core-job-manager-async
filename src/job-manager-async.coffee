@@ -8,7 +8,8 @@ class JobManagerAsync
     {@client,@timeoutSeconds, @signallingClient} = options
     throw new Error 'JobManagerAsync constructor is missing "timeoutSeconds"' unless @timeoutSeconds?
     throw new Error 'JobManagerAsync constructor is missing "client"' unless @client?
-    throw new Error 'JobManagerAsync constructor is missing "signalling client"' unless @signallingClient?
+    throw new Error 'JobManagerAsync constructor is missing "signallingClient"' unless @signallingClient?
+
   createRequest: (requestQueue, options, callback) =>
     {metadata,data,rawData} = options
     {responseId} = metadata
@@ -19,7 +20,7 @@ class JobManagerAsync
 
     debug "@client.hset", "#{responseId}", 'request:metadata', metadataStr
     debug '@client.lpush', "#{requestQueue}:queue"
-
+    
     async.series [
       async.apply @client.hset, "#{responseId}", 'request:metadata', metadataStr
       async.apply @client.hset, "#{responseId}", 'request:data', rawData
